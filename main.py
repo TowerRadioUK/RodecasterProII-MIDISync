@@ -1,49 +1,69 @@
 import mido
+import requests
 
+SERVER_HOST = "localhost"
 
 def debug():
-    print("\nisChannelMuted", isChannelMuted)
-    print("micLive", micLive)
+    print("\nisChannelActive", isChannelActive)
+    print("isChannelLive", isChannelLive)
     print("channelVolumeLevels", channelVolumeLevels, "\n")
+
+def notifyisChannelLive(micNumber, active):
+    data = {
+        "micNumber": micNumber,
+        "active": active
+    }
+
+    requests.post(f"http://{SERVER_HOST}:25543/isChannelLive", json=data)
 
 
 input("Is it set to default? ")
 
-# List all available MIDI input ports
-print("Available MIDI input ports:")
 input_ports = mido.get_input_names()
-for i, port in enumerate(input_ports):
-    print(f"{i}: {port}")
 
 # Check if there are any available input ports
 if not input_ports:
     print("No MIDI input ports found.")
     exit()
 
+midi_id = 0
+
+if len(input_ports) > 1:
+    print("Available MIDI input ports:")
+    for i, port in enumerate(input_ports):
+        print(f"{i}: {port}")
+    midi_id = int(input("\nPlease enter the ID of the MIDI Controller to use: "))
+    exit()
+
 # Open the first available MIDI input port
-input_port_name = input_ports[0]
+input_port_name = input_ports[midi_id]
 with mido.open_input(input_port_name) as input_port:
     print(f"Listening on {input_port_name}...")
 
-    # Continuously read and print MIDI messages
-    isChannelMuted = [True, True, True, True, True, True]
-
+    # Mic 1, Mic 2, Mic 3, Mic 4, Main, Chat
+    isChannelActive = [False, False, False, False, False, False]
     channelVolumeLevels = [0, 0, 0, 0, 0, 0]
-
-    micLive = [False, False, False, False, False, False]
+    isChannelLive = [False, False, False, False, False, False]
+    
     for message in input_port:
-        if message.control == 27 and message.value == 1:  # Mute button
-            isChannelMuted[message.channel] = not isChannelMuted[message.channel]
+        # Mute button pressed
+        if message.control == 27 and message.value == 1:
+            # Toggle channel active
+            isChannelActive[message.channel] = isChannelActive[message.channel]
 
-            if channelVolumeLevels[message.channel] > 1:
-                micLive[message.channel] = not isChannelMuted[message.channel]
+            # If mute toggled, and slider is up
+            if channelVolumeLevels[message.channel] >= 1:
+                isChannelLive[message.channel] = isChannelActive[message.channel]
 
-        if message.control == 15:  # volume change
+        # Volume slider moved
+        if message.control == 15:
+            # Set the volume level to the value of the slider
             channelVolumeLevels[message.channel] = message.value
 
-            if message.value > 1:
-                micLive[message.channel] = not isChannelMuted[message.channel]
+            # If slider is up
+            if message.value >= 1:
+                isChannelLive[message.channel] = isChannelActive[message.channel]
             else:
-                micLive[message.channel] = False
+                isChannelLive[message.channel] = False
 
         debug()
