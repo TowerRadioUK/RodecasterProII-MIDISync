@@ -1,14 +1,20 @@
 import mido
 import asyncio
 import aiohttp
+import tomli
 
-# NOTE: do not use a hostname, use an IP address!
-SERVER_HOST = "127.0.0.1"
+try:
+    with open("config.toml", mode="rb") as fp:
+        config = tomli.load(fp)
+except FileNotFoundError:
+    print("config.toml not found.")
+    exit()
 
 def debug():
-    print("\nisChannelActive", isChannelActive)
-    print("isChannelLive", isChannelLive)
-    print("channelVolumeLevels", channelVolumeLevels, "\n")
+    if config["other"]["debug"]:
+        print("\nisChannelActive", isChannelActive)
+        print("isChannelLive", isChannelLive)
+        print("channelVolumeLevels", channelVolumeLevels, "\n")
 
 async def notify_channel_live(channel_number, active):
   lamp_number = {
@@ -30,10 +36,11 @@ async def notify_channel_live(channel_number, active):
   }
 
   async with aiohttp.ClientSession() as session:
-    async with session.post(f"http://{SERVER_HOST}:25543/channelLive", json=data) as response:
+    async with session.post(f"http://{config['clock']['host']}:{config['clock']['port']}/channelLive", json=data) as response:
       response.raise_for_status()  # Raise an exception for unsuccessful responses
 
-input("Is it set to default? ")
+if config["other"]["prompt_default"]:
+    input("Is it set to default? ")
 
 # Reset to defaults
 asyncio.run(notify_channel_live(1, False))
@@ -50,17 +57,13 @@ if not input_ports:
     print("No MIDI input ports found.")
     exit()
 
-midi_id = 0
-
-if len(input_ports) > 1:
+if config["other"]["debug"]:
     print("Available MIDI input ports:")
     for i, port in enumerate(input_ports):
         print(f"{i}: {port}")
-    midi_id = int(input("\nPlease enter the ID of the MIDI Controller to use: "))
-    exit()
 
 # Open the first available MIDI input port
-input_port_name = input_ports[midi_id]
+input_port_name = input_ports[config["midi"]["input_id"]]
 with mido.open_input(input_port_name) as input_port:
     print(f"Listening on {input_port_name}...")
 

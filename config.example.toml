@@ -1,0 +1,10 @@
+[clock]
+host = "127.0.0.1"
+port = 25543
+
+[midi]
+input_id = 0
+
+[other]
+debug = false
+prompt_default = true
