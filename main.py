@@ -2,12 +2,16 @@ import mido
 import asyncio
 import aiohttp
 import tomli
+import tkinter.messagebox
+
+VERSION = "1.0.0"
+TITLE = f"Tower Radio MIDI Sync v{VERSION} - Licensed to harry@hwal.uk"
 
 try:
     with open("config.toml", mode="rb") as fp:
         config = tomli.load(fp)
 except FileNotFoundError:
-    print("config.toml not found.")
+    tkinter.messagebox.showerror(TITLE, "Unable to locate configuration file. config.toml was not found.")
     exit()
 
 
@@ -45,13 +49,16 @@ async def notify_channel_live(channel_number, active):
 
 
 if config["other"]["prompt_default"]:
-    input("Is it set to default? ")
+    tkinter.messagebox.showwarning(
+        TITLE,
+        "Please ensure that all channels are set to loopback and the sliders are down before continuing. Press OK to continue.",
+    )
 
 # Reset to defaults
-asyncio.run(notify_channel_live(1, False))
-asyncio.run(notify_channel_live(2, False))
-asyncio.run(notify_channel_live(3, False))
-asyncio.run(notify_channel_live(4, False))
+asyncio.run(notify_channel_live(1, True))
+asyncio.run(notify_channel_live(2, True))
+asyncio.run(notify_channel_live(3, True))
+asyncio.run(notify_channel_live(4, True))
 asyncio.run(notify_channel_live(5, False))
 asyncio.run(notify_channel_live(0, False))
 
@@ -59,7 +66,7 @@ input_ports = mido.get_input_names()
 
 # Check if there are any available input ports
 if not input_ports:
-    print("No MIDI input ports found.")
+    tkinter.messagebox.showerror(TITLE, "No MIDI input ports found. Please ensure that the Rodecaster Pro II is connected to this computer.")
     exit()
 
 if config["other"]["debug"]:
