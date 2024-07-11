@@ -3,6 +3,7 @@ import asyncio
 import aiohttp
 import tomli
 import tkinter.messagebox
+import time
 
 VERSION = "1.0.0"
 TITLE = f"Tower Radio MIDI Sync v{VERSION} - Licensed to harry@hwal.uk"
@@ -24,11 +25,12 @@ def debug():
 
 async def notify_channel_live(channel_number, active):
     lamp_number = {
-        1: 5,
-        2: 6,
-        3: 7,
-        4: 8,
-        5: 2,
+        1: 5, # MIC 1
+        2: 6, # MIC 2
+        3: 7, # MIC 3
+        4: 8, # MIC 4
+        5: 2, # MAIN
+        6: 3, # CHAT
         0: 4,  # FAULT
     }.get(channel_number)
 
@@ -54,13 +56,19 @@ if config["other"]["prompt_default"]:
         "Please ensure that all channels are set to loopback and the sliders are down before continuing. Press OK to continue.",
     )
 
-# Reset to defaults
-asyncio.run(notify_channel_live(1, True))
-asyncio.run(notify_channel_live(2, True))
-asyncio.run(notify_channel_live(3, True))
-asyncio.run(notify_channel_live(4, True))
-asyncio.run(notify_channel_live(5, False))
-asyncio.run(notify_channel_live(0, False))
+def connection_tests():
+    for i in range(0,7):
+        try:
+            asyncio.run(notify_channel_live(i, True))
+            time.sleep(0.2)
+        except Exception as e:
+            tkinter.messagebox.showerror(TITLE, f"Unable to connect to the Tower Radio Studio Clock server.\n\n{e}")
+            exit()
+    for i in range(0,7):
+        asyncio.run(notify_channel_live(i, False))
+        time.sleep(0.2)
+
+connection_tests()
 
 input_ports = mido.get_input_names()
 
@@ -96,10 +104,6 @@ with mido.open_input(input_port_name) as input_port:
                 asyncio.run(
                     notify_channel_live(message.channel, isChannelLive[message.channel])
                 )
-
-            # Chat channel - FAULT
-            if message.channel == 5:
-                asyncio.run(notify_channel_live(0, isChannelLive[message.channel]))
 
         # Volume slider moved
         if message.control == 15:

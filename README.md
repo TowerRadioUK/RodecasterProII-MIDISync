@@ -9,4 +9,3 @@
 
 ### To-do
 - Startup app
-- System tray icon
