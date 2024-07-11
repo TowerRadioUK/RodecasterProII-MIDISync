@@ -8,6 +8,5 @@
 4. Run the script by running `python main.py`
 
 ### To-do
-- Configuration file
 - Startup app
 - System tray icon
