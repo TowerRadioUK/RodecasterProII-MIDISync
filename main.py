@@ -1,39 +1,47 @@
 import mido
-import requests
+import asyncio
+import aiohttp
 
-SERVER_HOST = "localhost"
+# NOTE: do not use a hostname, use an IP address!
+SERVER_HOST = "127.0.0.1"
 
 def debug():
     print("\nisChannelActive", isChannelActive)
     print("isChannelLive", isChannelLive)
     print("channelVolumeLevels", channelVolumeLevels, "\n")
 
-def notifyisChannelLive(channelNumber, active):
-    lampNumber = 0
+async def notify_channel_live(channel_number, active):
+  lamp_number = {
+      1: 5,
+      2: 6,
+      3: 7,
+      4: 8,
+      5: 2,
 
-    match channelNumber:
-        case 1:
-            lampNumber = 5
-        case 2:
-            lampNumber = 6
-        case 3:
-            lampNumber = 7
-        case 4:
-            lampNumber = 8
-    
-    if lampNumber == 0:
-        return
+      0: 4, # FAULT
+  }.get(channel_number)
 
-    data = {
-        "lampNumber": lampNumber,
-        "active": active
-    }
+  if not lamp_number:
+    return
 
-    requests.post(f"http://{SERVER_HOST}:25543/channelLive", json=data)
+  data = {
+      "lampNumber": lamp_number,
+      "active": active,
+  }
+
+  async with aiohttp.ClientSession() as session:
+    async with session.post(f"http://{SERVER_HOST}:25543/channelLive", json=data) as response:
+      response.raise_for_status()  # Raise an exception for unsuccessful responses
 
 input("Is it set to default? ")
 
-notifyisChannelLive(1, True)
+# Reset to defaults
+asyncio.run(notify_channel_live(1, False))
+asyncio.run(notify_channel_live(2, False))
+asyncio.run(notify_channel_live(3, False))
+asyncio.run(notify_channel_live(4, False))
+asyncio.run(notify_channel_live(5, False))
+asyncio.run(notify_channel_live(0, False))
 
 input_ports = mido.get_input_names()
 
@@ -70,7 +78,11 @@ with mido.open_input(input_port_name) as input_port:
             # If mute toggled, and slider is up
             if channelVolumeLevels[message.channel] >= 1:
                 isChannelLive[message.channel] = isChannelActive[message.channel]
-                notifyisChannelLive(message.channel, isChannelLive[message.channel])
+                asyncio.run(notify_channel_live(message.channel, isChannelLive[message.channel]))
+            
+            # Chat channel - FAULT
+            if message.channel == 5:
+                asyncio.run(notify_channel_live(0, isChannelLive[message.channel]))
 
         # Volume slider moved
         if message.control == 15:
