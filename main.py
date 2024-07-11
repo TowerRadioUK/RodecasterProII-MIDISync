@@ -8,16 +8,32 @@ def debug():
     print("isChannelLive", isChannelLive)
     print("channelVolumeLevels", channelVolumeLevels, "\n")
 
-def notifyisChannelLive(micNumber, active):
+def notifyisChannelLive(channelNumber, active):
+    lampNumber = 0
+
+    match channelNumber:
+        case 1:
+            lampNumber = 5
+        case 2:
+            lampNumber = 6
+        case 3:
+            lampNumber = 7
+        case 4:
+            lampNumber = 8
+    
+    if lampNumber == 0:
+        return
+
     data = {
-        "micNumber": micNumber,
+        "lampNumber": lampNumber,
         "active": active
     }
 
-    requests.post(f"http://{SERVER_HOST}:25543/isChannelLive", json=data)
-
+    requests.post(f"http://{SERVER_HOST}:25543/channelLive", json=data)
 
 input("Is it set to default? ")
+
+notifyisChannelLive(1, True)
 
 input_ports = mido.get_input_names()
 
@@ -54,6 +70,7 @@ with mido.open_input(input_port_name) as input_port:
             # If mute toggled, and slider is up
             if channelVolumeLevels[message.channel] >= 1:
                 isChannelLive[message.channel] = isChannelActive[message.channel]
+                notifyisChannelLive(message.channel, isChannelLive[message.channel])
 
         # Volume slider moved
         if message.control == 15:
