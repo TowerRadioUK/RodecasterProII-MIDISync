@@ -30,7 +30,8 @@ async def notify_channel_live(channel_number, active):
         3: 7, # MIC 3
         4: 8, # MIC 4
         5: 2, # MAIN
-        6: 3, # CHAT
+        6: 41, # CHAT (FAULT)
+
         0: 4,  # FAULT
     }.get(channel_number)
 
@@ -42,12 +43,15 @@ async def notify_channel_live(channel_number, active):
         "active": active,
     }
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            f"http://{config['clock']['host']}:{config['clock']['port']}/channelLive",
-            json=data,
-        ) as response:
-            response.raise_for_status()  # Raise an exception for unsuccessful responses
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"http://{config['clock']['host']}:{config['clock']['port']}/channelLive",
+                json=data,
+            ) as response:
+                response.raise_for_status()
+    except Exception as e:
+        tkinter.messagebox.showerror(TITLE, f"Unable to connect to the Tower Radio Studio Clock server.\n\n{e}")
 
 
 if config["other"]["prompt_default"]:
@@ -58,13 +62,8 @@ if config["other"]["prompt_default"]:
 
 def connection_tests():
     for i in range(0,7):
-        try:
-            asyncio.run(notify_channel_live(i, True))
-            time.sleep(0.2)
-        except Exception as e:
-            tkinter.messagebox.showerror(TITLE, f"Unable to connect to the Tower Radio Studio Clock server.\n\n{e}")
-            exit()
-    for i in range(0,7):
+        asyncio.run(notify_channel_live(i, True))
+        time.sleep(0.2)
         asyncio.run(notify_channel_live(i, False))
         time.sleep(0.2)
 
