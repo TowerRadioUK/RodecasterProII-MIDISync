@@ -68,6 +68,7 @@ def connection_tests():
     for i in range(0, 7):
         asyncio.run(notify_channel_live(i, True))
         time.sleep(0.2)
+    for i in range(0, 7):
         asyncio.run(notify_channel_live(i, False))
         time.sleep(0.2)
 
