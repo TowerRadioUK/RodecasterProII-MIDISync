@@ -112,8 +112,18 @@ with mido.open_input(input_port_name) as input_port:
 
             # If slider is up
             if message.value >= 1:
+                if isChannelLive[message.channel] != isChannelActive[message.channel]:
+                    asyncio.run(
+                        notify_channel_live(message.channel + 1, not isChannelLive[message.channel])
+                    )
                 isChannelLive[message.channel] = isChannelActive[message.channel]
             else:
+                if isChannelLive[message.channel]:
+                    asyncio.run(
+                        notify_channel_live(message.channel + 1, not isChannelLive[message.channel])
+                    )
                 isChannelLive[message.channel] = False
+            
+            
 
         debug()
