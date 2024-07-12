@@ -96,13 +96,13 @@ with mido.open_input(input_port_name) as input_port:
         # Mute button pressed
         if message.control == 27 and message.value == 1:
             # Toggle channel active
-            isChannelActive[message.channel] = isChannelActive[message.channel]
+            isChannelActive[message.channel] = not isChannelActive[message.channel]
 
             # If mute toggled, and slider is up
             if channelVolumeLevels[message.channel] >= 1:
                 isChannelLive[message.channel] = isChannelActive[message.channel]
                 asyncio.run(
-                    notify_channel_live(message.channel, isChannelLive[message.channel])
+                    notify_channel_live(message.channel + 1, isChannelLive[message.channel])
                 )
 
         # Volume slider moved
