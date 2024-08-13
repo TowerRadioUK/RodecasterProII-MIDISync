@@ -1,4 +1,4 @@
-# Tower Radio MIDI Sync
+# Rodecaster Pro II MIDI Sync
 
 ## Installation
 
