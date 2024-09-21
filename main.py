@@ -5,7 +5,7 @@ import tomli
 import tkinter.messagebox
 import time
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 TITLE = f"Tower Radio MIDI Sync v{VERSION} - Licensed to harry@hwal.uk"
 
 try:
