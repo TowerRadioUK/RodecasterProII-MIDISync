@@ -73,7 +73,8 @@ def connection_tests():
         time.sleep(0.2)
 
 
-connection_tests()
+if config["other"]["debug"]:
+    connection_tests()
 
 input_ports = mido.get_input_names()
 
