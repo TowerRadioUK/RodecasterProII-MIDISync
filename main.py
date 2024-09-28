@@ -4,10 +4,13 @@ import aiohttp
 import tomli
 import tkinter.messagebox
 import time
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 VERSION = "1.0.1"
 TITLE = f"Tower Radio MIDI Sync v{VERSION} - Licensed to harry@hwal.uk"
 
+# Load configuration
 try:
     with open("config.toml", mode="rb") as fp:
         config = tomli.load(fp)
@@ -17,13 +20,11 @@ except FileNotFoundError:
     )
     exit()
 
-
 def debug():
     if config["other"]["debug"]:
         print("\nisChannelActive", isChannelActive)
         print("isChannelLive", isChannelLive)
         print("channelVolumeLevels", channelVolumeLevels, "\n")
-
 
 async def notify_channel_live(channel_number, active):
     lamp_number = {
@@ -56,23 +57,26 @@ async def notify_channel_live(channel_number, active):
             TITLE, f"Unable to connect to the Tower Radio Studio Clock server.\n\n{e}"
         )
 
+def run_notify_channel_live(channel_number, active):
+    asyncio.run(notify_channel_live(channel_number, active))
 
+def connection_tests():
+    with ThreadPoolExecutor() as executor:
+        for i in range(0, 7):
+            executor.submit(run_notify_channel_live, i, True)
+            time.sleep(0.2)
+        for i in range(0, 7):
+            executor.submit(run_notify_channel_live, i, False)
+            time.sleep(0.2)
+
+# Prompt the user if necessary
 if config["other"]["prompt_default"]:
     tkinter.messagebox.showwarning(
         TITLE,
         "Please ensure that all channels are set to loopback and the sliders are down before continuing. Press OK to continue.",
     )
 
-
-def connection_tests():
-    for i in range(0, 7):
-        asyncio.run(notify_channel_live(i, True))
-        time.sleep(0.2)
-    for i in range(0, 7):
-        asyncio.run(notify_channel_live(i, False))
-        time.sleep(0.2)
-
-
+# Run connection tests if debug is enabled
 if config["other"]["debug"]:
     connection_tests()
 
@@ -93,50 +97,57 @@ if config["other"]["debug"]:
 
 # Open the first available MIDI input port
 input_port_name = input_ports[config["midi"]["input_id"]]
-with mido.open_input(input_port_name) as input_port:
-    print(f"Listening on {input_port_name}...")
 
-    # Mic 1, Mic 2, Mic 3, Mic 4, Main, Chat
-    isChannelActive = [False, False, False, False, False, False]
-    channelVolumeLevels = [0, 0, 0, 0, 0, 0]
-    isChannelLive = [False, False, False, False, False, False]
+# Processing MIDI messages in a separate thread to prevent blocking
+def process_midi_messages():
+    with mido.open_input(input_port_name) as input_port:
+        print(f"Listening on {input_port_name}...")
 
-    for message in input_port:
-        # Mute button pressed
-        if message.control == 27 and message.value == 1:
-            # Toggle channel active
-            isChannelActive[message.channel] = not isChannelActive[message.channel]
+        # Mic 1, Mic 2, Mic 3, Mic 4, Main, Chat
+        isChannelActive = [False, False, False, False, False, False]
+        channelVolumeLevels = [0, 0, 0, 0, 0, 0]
+        isChannelLive = [False, False, False, False, False, False]
 
-            # If mute toggled, and slider is up
-            if channelVolumeLevels[message.channel] >= 1:
-                isChannelLive[message.channel] = isChannelActive[message.channel]
-                asyncio.run(
-                    notify_channel_live(
-                        message.channel + 1, isChannelLive[message.channel]
-                    )
-                )
+        for message in input_port:
+            # Mute button pressed
+            if message.control == 27 and message.value == 1:
+                # Toggle channel active
+                isChannelActive[message.channel] = not isChannelActive[message.channel]
 
-        # Volume slider moved
-        if message.control == 15:
-            # Set the volume level to the value of the slider
-            channelVolumeLevels[message.channel] = message.value
+                # If mute toggled, and slider is up
+                if channelVolumeLevels[message.channel] >= 1:
+                    isChannelLive[message.channel] = isChannelActive[message.channel]
+                    threading.Thread(
+                        target=run_notify_channel_live,
+                        args=(message.channel + 1, isChannelLive[message.channel]),
+                    ).start()
 
-            # If slider is up
-            if message.value >= 1:
-                if isChannelLive[message.channel] != isChannelActive[message.channel]:
-                    asyncio.run(
-                        notify_channel_live(
-                            message.channel + 1, not isChannelLive[message.channel]
-                        )
-                    )
-                isChannelLive[message.channel] = isChannelActive[message.channel]
-            else:
-                if isChannelLive[message.channel]:
-                    asyncio.run(
-                        notify_channel_live(
-                            message.channel + 1, not isChannelLive[message.channel]
-                        )
-                    )
-                isChannelLive[message.channel] = False
+            # Volume slider moved
+            if message.control == 15:
+                # Set the volume level to the value of the slider
+                channelVolumeLevels[message.channel] = message.value
 
-        debug()
+                # If slider is up
+                if message.value >= 1:
+                    if isChannelLive[message.channel] != isChannelActive[message.channel]:
+                        threading.Thread(
+                            target=run_notify_channel_live,
+                            args=(message.channel + 1, not isChannelLive[message.channel]),
+                        ).start()
+                    isChannelLive[message.channel] = isChannelActive[message.channel]
+                else:
+                    if isChannelLive[message.channel]:
+                        threading.Thread(
+                            target=run_notify_channel_live,
+                            args=(message.channel + 1, not isChannelLive[message.channel]),
+                        ).start()
+                    isChannelLive[message.channel] = False
+
+            debug()
+
+# Start the MIDI message processing in a new thread
+midi_thread = threading.Thread(target=process_midi_messages)
+midi_thread.start()
+
+# Keep the main thread alive to handle other tasks (e.g., UI)
+midi_thread.join()
