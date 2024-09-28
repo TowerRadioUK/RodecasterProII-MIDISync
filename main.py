@@ -7,7 +7,7 @@ import time
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-VERSION = "1.0.1"
+VERSION = "1.1.0"
 TITLE = f"Tower Radio MIDI Sync v{VERSION} - Licensed to harry@hwal.uk"
 
 # Load configuration
