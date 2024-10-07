@@ -20,11 +20,6 @@ except FileNotFoundError:
     )
     exit()
 
-def debug():
-    if config["other"]["debug"]:
-        print("\nisChannelActive", isChannelActive)
-        print("isChannelLive", isChannelLive)
-        print("channelVolumeLevels", channelVolumeLevels, "\n")
 
 async def notify_channel_live(channel_number, active):
     lamp_number = {
@@ -57,8 +52,23 @@ async def notify_channel_live(channel_number, active):
             TITLE, f"Unable to connect to the Tower Radio Studio Clock server.\n\n{e}"
         )
 
+
+async def keepalive():
+    url = f"http://{config['clock']['host']}:{config['clock']['port']}/keepalive"
+    while True:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url) as response:
+                    response.raise_for_status()
+                    print("Keepalive sent successfully.")
+        except Exception as e:
+            print(f"Failed to send keepalive: {e}")
+        await asyncio.sleep(30)  # Wait for 30 seconds before sending the next request
+
+
 def run_notify_channel_live(channel_number, active):
     asyncio.run(notify_channel_live(channel_number, active))
+
 
 def connection_tests():
     with ThreadPoolExecutor() as executor:
@@ -68,6 +78,7 @@ def connection_tests():
         for i in range(0, 7):
             executor.submit(run_notify_channel_live, i, False)
             time.sleep(0.2)
+
 
 # Prompt the user if necessary
 if config["other"]["prompt_default"]:
@@ -97,6 +108,7 @@ if config["other"]["debug"]:
 
 # Open the first available MIDI input port
 input_port_name = input_ports[config["midi"]["input_id"]]
+
 
 # Processing MIDI messages in a separate thread to prevent blocking
 def process_midi_messages():
@@ -129,25 +141,47 @@ def process_midi_messages():
 
                 # If slider is up
                 if message.value >= 1:
-                    if isChannelLive[message.channel] != isChannelActive[message.channel]:
+                    if (
+                        isChannelLive[message.channel]
+                        != isChannelActive[message.channel]
+                    ):
                         threading.Thread(
                             target=run_notify_channel_live,
-                            args=(message.channel + 1, not isChannelLive[message.channel]),
+                            args=(
+                                message.channel + 1,
+                                not isChannelLive[message.channel],
+                            ),
                         ).start()
                     isChannelLive[message.channel] = isChannelActive[message.channel]
                 else:
                     if isChannelLive[message.channel]:
                         threading.Thread(
                             target=run_notify_channel_live,
-                            args=(message.channel + 1, not isChannelLive[message.channel]),
+                            args=(
+                                message.channel + 1,
+                                not isChannelLive[message.channel],
+                            ),
                         ).start()
                     isChannelLive[message.channel] = False
 
-            debug()
+            if config["other"]["debug"]:
+                print("\nisChannelActive", isChannelActive)
+                print("isChannelLive", isChannelLive)
+                print("channelVolumeLevels", channelVolumeLevels, "\n")
+
 
 # Start the MIDI message processing in a new thread
 midi_thread = threading.Thread(target=process_midi_messages)
 midi_thread.start()
 
+
 # Keep the main thread alive to handle other tasks (e.g., UI)
-midi_thread.join()
+async def main():
+    # Start keepalive task
+    asyncio.create_task(keepalive())
+
+    while True:
+        await asyncio.sleep(3600)
+
+
+asyncio.run(main())
