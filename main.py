@@ -63,7 +63,7 @@ async def keepalive():
                     print("Keepalive sent successfully.")
         except Exception as e:
             print(f"Failed to send keepalive: {e}")
-        await asyncio.sleep(30)  # Wait for 30 seconds before sending the next request
+        await asyncio.sleep(15)  # Wait for 30 seconds before sending the next request
 
 
 def run_notify_channel_live(channel_number, active):
